@@ -14,6 +14,7 @@ const sweepCenterButton = document.getElementById('sweepCenterButton');
 const sweepRightButton = document.getElementById('sweepRightButton');
 
 // Game constants
+const GAME_SPEED_MULTIPLIER = 0.5; // Slows down the game's visual update speed
 const HOUSE_CENTER_X = canvas.width - 120;
 const HOUSE_CENTER_Y = canvas.height / 2;
 const START_X = 150; // Increased from 100 for more aiming room
@@ -340,8 +341,8 @@ function update() {
             // stone.vy += appliedSweepCurlInfluence.y;
 
             // Update position
-            stone.x += stone.vx;
-            stone.y += stone.vy;
+            stone.x += stone.vx * GAME_SPEED_MULTIPLIER;
+            stone.y += stone.vy * GAME_SPEED_MULTIPLIER;
 
             // Stop the stone if it's slow enough
             if (Math.hypot(stone.vx, stone.vy) < 0.1) {
