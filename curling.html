@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Curling Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>Simple Curling Game</h1>
+
+    <div class="game-info">
+        <div id="status" class="info-box">Aim and release to throw!</div>
+        <div class="info-box">
+            <span>Score: </span>
+            <span style="color: #e53e3e;">Red: <span id="score-red">0</span></span> |
+            <span style="color: #4299e1;">Blue: <span id="score-blue">0</span></span>
+        </div>
+        <button id="resetButton">New Game</button>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+    <script src="curling.js"></script>
+</body>
+</html>
