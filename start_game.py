@@ -8,7 +8,6 @@ PORT = 8080
 FILENAME = "curling.html"
 
 # --- HTML, CSS, and JavaScript for the Game ---
-# This long string contains the entire web page for the game.
 HTML_CONTENT = """
 <!DOCTYPE html>
 <html lang="en">
@@ -388,15 +387,48 @@ def create_and_launch_game():
 
     # 2. Set up and start a simple local web server
     Handler = http.server.SimpleHTTPRequestHandler
-    
+    httpd = None
+    current_port = PORT
+    max_retries = 10
+
+    for i in range(max_retries):
+        try:
+            httpd = socketserver.TCPServer(("", current_port), Handler)
+            print(f"✅ Server started successfully on port {current_port}.")
+            print(f"➡️  Serving at: http://localhost:{current_port}")
+            break
+        except OSError as e:
+            if "address already in use" in str(e).lower() or \
+               "only one usage of each socket address" in str(e).lower():
+                print(f"⚠️ Port {current_port} is in use. Trying next port...")
+                current_port += 1
+            else:
+                print(f"\n❌ Critical Error: Could not start the server.")
+                print(f"   Error details: {e}")
+                if os.path.exists(FILENAME):
+                    os.remove(FILENAME)
+                    print(f"🧹 Cleaned up {FILENAME}.")
+                return
+
+        if i == max_retries - 1 and httpd is None:
+            print(f"\n❌ Critical Error: Could not find an available port after {max_retries} attempts.")
+            print(f"   Please check your system for programs using ports {PORT}-{current_port-1}.")
+            if os.path.exists(FILENAME):
+                os.remove(FILENAME)
+                print(f"🧹 Cleaned up {FILENAME}.")
+            return
+
+    if httpd is None:
+        print(f"\n❌ Critical Error: Failed to initialize the server (httpd is None).")
+        if os.path.exists(FILENAME):
+            os.remove(FILENAME)
+            print(f"🧹 Cleaned up {FILENAME}.")
+        return
+
     try:
-        with socketserver.TCPServer(("", PORT), Handler) as httpd:
-            print(f"✅ Server started successfully.")
-            print(f"➡️  Serving at: http://localhost:{PORT}")
+        with httpd:
+            game_url = f"http://localhost:{current_port}/{FILENAME}"
             
-            game_url = f"http://localhost:{PORT}/{FILENAME}"
-            
-            # 3. Automatically open the game in a new browser tab
             print(f"🚀 Launching game in your browser...")
             webbrowser.open_new_tab(game_url)
 
@@ -406,27 +438,20 @@ def create_and_launch_game():
             print("  Press CTRL+C here to stop the server.")
             print("--------------------------------------\n")
             
-            # 4. Keep the server running until you stop it
             httpd.serve_forever()
 
     except OSError as e:
-        print(f"\n❌ Critical Error: Could not start the server on port {PORT}.")
-        print(f"   Another program might be using this port.")
+        print(f"\n❌ Critical Error encountered during server operation or browser launch.")
         print(f"   Error details: {e}")
-
     except KeyboardInterrupt:
         print("\n--------------------------------------")
         print("🛑 Server stopped by user.")
         print("   Closing the application. Goodbye!")
         print("--------------------------------------")
-
     finally:
-        # Clean up the created HTML file when the server stops
         if os.path.exists(FILENAME):
             os.remove(FILENAME)
             print(f"🧹 Cleaned up {FILENAME}.")
 
-
 if __name__ == "__main__":
     create_and_launch_game()
-
