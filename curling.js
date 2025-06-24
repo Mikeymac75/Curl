@@ -12,7 +12,7 @@ const resetButton = document.getElementById('resetButton');
 // Game constants
 const HOUSE_CENTER_X = canvas.width - 120;
 const HOUSE_CENTER_Y = canvas.height / 2;
-const START_X = 100;
+const START_X = 150; // Increased from 100 for more aiming room
 const STONE_RADIUS = 15;
 const FRICTION = 0.98; // closer to 1 means less friction
 const STONES_PER_TEAM = 4;
@@ -59,7 +59,8 @@ let lockedAngle = 0;    // Angle determined in aimingPower state
 const MAX_CURL_MOUSE_DRAG = 150; // Max pixels of horizontal mouse drag for full curl effect
 const CURL_EFFECT_SCALE = 0.001; // Scales the raw curl input to a spin value for the stone
 const LATERAL_CURL_FORCE = 0.03; // Base magnitude of the lateral force due to curl
-const POWER_MULTIPLIER = 0.15; // Existing multiplier for power
+const POWER_MULTIPLIER = 0.06; // Reduced from 0.15 to slow down the stone
+// Existing multiplier for power
 
 // Constants for Sweeping
 const SWEEP_FRICTION_REDUCTION_EFFECT = 0.002; // Increases effective friction factor towards 1.0
