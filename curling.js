@@ -981,58 +981,6 @@ function endTurn() {
     }
 }
 
-// Modify mouseup to update new stone counters
-canvas.addEventListener('mouseup', (e) => {
-    if (!isAiming || gameState !== 'aiming') return; // ensure aiming state
-
-    // Check if current team has stones left to throw
-    if (currentTeam === 'red' && redStonesThrownThisEnd >= STONES_PER_TEAM) {
-        statusEl.textContent = "Red has no stones left. Waiting for Blue.";
-        isAiming = false; // Prevent throwing if no stones left
-        // Potentially switch turn here if blue still has stones
-        if (blueStonesThrownThisEnd < STONES_PER_TEAM) currentTeam = 'blue'; updateStatus();
-        return;
-    }
-    if (currentTeam === 'blue' && blueStonesThrownThisEnd >= STONES_PER_TEAM) {
-        statusEl.textContent = "Blue has no stones left. Waiting for Red.";
-        isAiming = false; // Prevent throwing if no stones left
-        if (redStonesThrownThisEnd < STONES_PER_TEAM) currentTeam = 'red'; updateStatus();
-        return;
-    }
-
-    isAiming = false;
-    gameState = 'sliding';
-    // Status will be updated by update() or endTurn()
-
-    const powerMultiplier = 0.15;
-    const vx = (aimStart.x - aimEnd.x) * powerMultiplier;
-    const vy = (aimStart.y - aimEnd.y) * powerMultiplier;
-
-    let stoneColor = currentTeam === 'red' ? COLOR_RED : COLOR_BLUE;
-    stones.push({
-        x: START_X,
-        y: canvas.height / 2,
-        vx: vx,
-        vy: vy,
-        color: stoneColor,
-        isSliding: true,
-        id: `stone-${stones.length}` // Unique ID for debugging or advanced features
-        // spinDirection will be added later
-    });
-
-    if (currentTeam === 'red') {
-        redStonesThrownThisEnd++;
-    } else {
-        blueStonesThrownThisEnd++;
-    }
-
-    updateStatus(); // Update status immediately after a throw to show correct stones left
-
-    // If after this throw, all stones for the current end are thrown, prepare for scoring
-    // This check is better placed in endTurn, which is called when all stones stop moving.
-});
-
-
 // The rest of the original JS code (calculateScore, draw functions etc.) remains the same for now.
 // ...
 // Make sure resetGame is called to initialize.
