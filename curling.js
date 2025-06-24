@@ -19,6 +19,8 @@ const HOUSE_CENTER_Y = canvas.height / 2;
 const START_X = 150; // Increased from 100 for more aiming room
 const STONE_RADIUS = 15;
 const FRICTION = 0.98; // closer to 1 means less friction
+const GAME_SPEED_MODIFIER = 0.5; // Slows down visual updates
+const ADJUSTED_FRICTION = Math.pow(FRICTION, GAME_SPEED_MODIFIER); // Compensate friction for slower updates
 const STONES_PER_TEAM = 4;
 
 // Constants for new game features (moved from bottom)
@@ -198,8 +200,8 @@ function drawProjectedPath(startX, startY, initialPower, initialAngle, curlInput
 
     for (let i = 0; i < numSteps; i++) {
         // Apply friction (same as in main update)
-        simVx *= FRICTION;
-        simVy *= FRICTION;
+        simVx *= ADJUSTED_FRICTION; // Use adjusted friction for projection consistency
+        simVy *= ADJUSTED_FRICTION; // Use adjusted friction for projection consistency
 
         // Apply curl physics (simplified, same as in main update)
         if (simSpinDirection !== 0) {
@@ -272,8 +274,8 @@ function update() {
             // }
 
             // Apply friction to slow down the stone
-            stone.vx *= currentFriction; // currentFriction is just FRICTION now unless changed by other mechanics
-            stone.vy *= currentFriction;
+            stone.vx *= ADJUSTED_FRICTION; // currentFriction is just FRICTION now unless changed by other mechanics
+            stone.vy *= ADJUSTED_FRICTION;
 
             // Apply curl physics if the stone has spin and is moving
             if (stone.spinDirection !== 0 && typeof stone.spinDirection === 'number') {
@@ -340,8 +342,8 @@ function update() {
             // stone.vy += appliedSweepCurlInfluence.y;
 
             // Update position
-            stone.x += stone.vx;
-            stone.y += stone.vy;
+            stone.x += stone.vx * GAME_SPEED_MODIFIER;
+            stone.y += stone.vy * GAME_SPEED_MODIFIER;
 
             // Stop the stone if it's slow enough
             if (Math.hypot(stone.vx, stone.vy) < 0.1) {
@@ -803,11 +805,13 @@ canvas.addEventListener('mouseup', (e) => {
         const dx = powerAimStart.x - powerAimEnd.x; // Reversed for "pull back" mechanic
         const dy = powerAimStart.y - powerAimEnd.y; // Reversed
 
-        lockedPower = Math.hypot(dx, dy) * POWER_MULTIPLIER;
-        lockedAngle = Math.atan2(dy, dx); // Angle of the velocity vector
+        let dragDistance = Math.hypot(dx, dy);
+        // Cap dragDistance at 150px, consistent with power display percentage
+        const maxDragDistance = 150;
+        dragDistance = Math.min(dragDistance, maxDragDistance);
 
-        // Clamp maximum power if necessary
-        // lockedPower = Math.min(lockedPower, MAX_POWER);
+        lockedPower = dragDistance * POWER_MULTIPLIER;
+        lockedAngle = Math.atan2(dy, dx); // Angle of the velocity vector
 
         gameState = 'aimingCurl';
         isSettingCurl = true;
