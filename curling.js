@@ -824,57 +824,7 @@ update();
 // stonesThrownThisTurn might be better named stonesThrownThisEnd.
 
 // Let's refine updateStatus and endTurn logic slightly for clarity with STONES_PER_TEAM
-function updateStatusRefined() {
-    let teamName = currentTeam.charAt(0).toUpperCase() + currentTeam.slice(1);
-    // Calculate stones thrown by the current team in this end
-    let stonesThrownByCurrentTeamThisEnd = 0;
-    if (currentTeam === 'red') {
-        stonesThrownByCurrentTeamThisEnd = Math.ceil(stonesThrownThisTurn / 2);
-        if (stonesThrownThisTurn % 2 === 0 && totalStonesThrown > 0 && currentTeam === 'red' && gameState !== 'sliding') {
-             // If it was blue's turn and now it's red, blue just finished.
-        }
-    } else { // Blue's turn
-        stonesThrownByCurrentTeamThisEnd = Math.floor(stonesThrownThisTurn / 2);
-    }
-    //This logic is tricky. Let's simplify for now and refine when testing the game flow.
-    // A simpler way: track stones per team per end directly.
-    // For now, let's use a placeholder in status and fix stone counting later if it's off.
-    // The original logic for stonesLeft was: STONES_PER_TEAM - Math.floor(totalStonesThrown / 2);
-    // This is not quite right as it doesn't distinguish teams well.
-
-    // Let's track stones thrown by each team in the current end.
-    // This requires adding more state variables or calculating from `stones` array,
-    // which is more robust.
-
-    let redStonesInEnd = stones.filter(s => s.color === COLOR_RED && s.thrownInCurrentEnd).length; // Need to add thrownInCurrentEnd marker
-    let blueStonesInEnd = stones.filter(s => s.color === COLOR_BLUE && s.thrownInCurrentEnd).length; // Need to add thrownInCurrentEnd marker
-
-    // For now, let's stick to a simpler status update and refine game state tracking for stones per end later.
-    // The old status:
-    // let stonesLeft = STONES_PER_TEAM - Math.floor(totalStonesThrown / 2);
-    // This implies totalStonesThrown is for the whole game, not the end.
-    // Let's assume totalStonesThrown is for the current "end" (round).
-
-    let stonesThisTeamHasThrownThisEnd = 0;
-    if (currentTeam === 'red') {
-        stonesThisTeamHasThrownThisEnd = Math.floor(stonesThrownThisTurn / 2); // if red is 0,1 stones thrown, blue is 2,3
-    } else { // blue's turn
-        stonesThisTeamHasThrownThisEnd = Math.floor((stonesThrownThisTurn-1) / 2);
-    }
-    // This is not quite right. Let's make a dedicated counter.
-
-    // Simpler approach for now:
-    // Each time a stone is thrown, increment a counter for that team for the current end.
-    // This will be added when we refine stone object.
-    // For now, the status will just show whose turn.
-
-    statusEl.innerHTML = `
-        <div class="team-indicator">
-            <div class="color-box" style="background-color:${currentTeam === 'red' ? COLOR_RED : COLOR_BLUE};"></div>
-            <span>${teamName}'s Turn. Stones for this end: ${STONES_PER_TEAM}</span>
-        </div>
-    `;
-}
+// [REMOVED - updateStatusRefined was here]
 
 // Replace original updateStatus call in resetGame and startTurn with updateStatusRefined if desired,
 // or keep the old one and fix the logic when those features are implemented.
@@ -886,100 +836,12 @@ function updateStatusRefined() {
 
 // NOTE: redStonesThrownThisEnd and blueStonesThrownThisEnd are now declared at the top of the script.
 
-function resetGame() {
-    stones = [];
-    currentTeam = 'red';
-    // stonesThrownThisTurn = 0; // This was for the combined count in an end
-    // totalStonesThrown = 0; // This was for the whole game across multiple ends
+// [REMOVED - second definition of resetGame was here]
 
-    redStonesThrownThisEnd = 0;
-    blueStonesThrownThisEnd = 0;
+// [REMOVED - second definition of updateStatus was here]
 
-    // If we plan for multiple ends, reset score here or keep it for a full game.
-    // The current scoring implies one end game.
-    score = { red: 0, blue: 0 };
-    scoreRedEl.textContent = '0';
-    scoreBlueEl.textContent = '0';
+// [REMOVED - second definition of endTurn was here]
 
-    gameState = 'aiming'; // Resetting gameState
-    updateStatus(); // Use the refined status update
-    // Call update directly to redraw canvas etc.
-}
-
-
-function updateStatus() { //This is the original one, let's modify it
-    let teamName = currentTeam.charAt(0).toUpperCase() + currentTeam.slice(1);
-    let stonesLeftForCurrentTeam = 0;
-    if (currentTeam === 'red') {
-        stonesLeftForCurrentTeam = STONES_PER_TEAM - redStonesThrownThisEnd;
-    } else {
-        stonesLeftForCurrentTeam = STONES_PER_TEAM - blueStonesThrownThisEnd;
-    }
-
-    statusEl.innerHTML = `
-        <div class="team-indicator">
-            <div class="color-box" style="background-color:${currentTeam === 'red' ? COLOR_RED : COLOR_BLUE};"></div>
-            <span>${teamName}'s Turn (${stonesLeftForCurrentTeam} stones left this end)</span>
-        </div>
-    `;
-    if (gameState === 'aiming' && stonesLeftForCurrentTeam === 0 && (redStonesThrownThisEnd + blueStonesThrownThisEnd) < STONES_PER_TEAM * 2) {
-        // This means current team has no stones left, but the other team might.
-        // This should ideally not happen if turn switching is correct.
-        // This case is handled by endTurn logic.
-    } else if (redStonesThrownThisEnd === STONES_PER_TEAM && blueStonesThrownThisEnd === STONES_PER_TEAM) {
-        statusEl.innerHTML = `End over. Calculating score...`;
-    }
-}
-
-
-function endTurn() {
-    // This function is called *after* a stone has finished sliding.
-    // Increment stones thrown for the team that just played.
-    // Note: The stone is added to `stones` array on mouseup.
-    // Here we just update counts and switch turns or end the game.
-
-    // No, this function is called when a stone *stops* sliding.
-    // The stone has already been "thrown" and its properties set.
-    // The `mouseup` event is where the stone is created and starts sliding.
-    // `totalStonesThrown` and `stonesThrownThisTurn` from the original code were a bit confusing.
-    // Let's use redStonesThrownThisEnd and blueStonesThrownThisEnd.
-
-    // Check if all stones for the end have been played
-    if (redStonesThrownThisEnd === STONES_PER_TEAM && blueStonesThrownThisEnd === STONES_PER_TEAM) {
-        calculateScore();
-        return;
-    }
-
-    // Switch teams
-    if (currentTeam === 'red') {
-        // Red just finished their turn (stone stopped)
-        // It's now Blue's turn, if Blue has stones left
-        if (blueStonesThrownThisEnd < STONES_PER_TEAM) {
-            currentTeam = 'blue';
-        } else {
-            // Blue has no stones left, but Red might (should not happen if logic is right)
-            // This implies an error or end of end.
-            // If red also has thrown all, then score.
-        }
-    } else { // currentTeam === 'blue'
-        // Blue just finished their turn
-        // It's now Red's turn, if Red has stones left
-        if (redStonesThrownThisEnd < STONES_PER_TEAM) {
-            currentTeam = 'red';
-        } else {
-            // Red has no stones left.
-        }
-    }
-
-    // If both teams have thrown all their stones, calculate score
-    if (redStonesThrownThisEnd === STONES_PER_TEAM && blueStonesThrownThisEnd === STONES_PER_TEAM) {
-        // This check is now at the start of endTurn and after stone count increment in mouseup
-        // calculateScore(); // Already called if conditions met
-    } else {
-        gameState = 'aiming'; // Set state for next throw
-        updateStatus();
-    }
-}
 
 // The rest of the original JS code (calculateScore, draw functions etc.) remains the same for now.
 // ...
@@ -987,5 +849,5 @@ function endTurn() {
 // Call update to start the loop.
 
 // Initial call to setup the game
-resetGame();
+resetGame(); // This will now call the first (correct) definition of resetGame
 update();
