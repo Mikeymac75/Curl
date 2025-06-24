@@ -8,6 +8,10 @@ const statusEl = document.getElementById('status');
 const scoreRedEl = document.getElementById('score-red');
 const scoreBlueEl = document.getElementById('score-blue');
 const resetButton = document.getElementById('resetButton');
+const sweepControls = document.getElementById('sweepControls'); // Div for sweep buttons
+const sweepLeftButton = document.getElementById('sweepLeftButton');
+const sweepCenterButton = document.getElementById('sweepCenterButton');
+const sweepRightButton = document.getElementById('sweepRightButton');
 
 // Game constants
 const HOUSE_CENTER_X = canvas.width - 120;
@@ -49,8 +53,8 @@ let powerAimStart = { x: 0, y: 0 }; // Mouse position when power aim started
 let powerAimEnd = { x: 0, y: 0 };   // Current mouse position for power aiming
 
 let isSettingCurl = false; // True when setting curl (after power is locked)
-let curlAimStartX = 0; // Mouse X position when curl setting started
-let currentCurlInput = 0; // Raw curl input from mouse X, will be normalized e.g. to -1, 0, 1
+let curlAimStartY = 0; // Mouse Y position when curl setting started
+let currentCurlInput = 0; // Raw curl input from mouse Y, will be normalized e.g. to -1, 0, 1
 
 let lockedPower = 0;    // Power determined in aimingPower state
 let lockedAngle = 0;    // Angle determined in aimingPower state
@@ -59,17 +63,21 @@ let lockedAngle = 0;    // Angle determined in aimingPower state
 const MAX_CURL_MOUSE_DRAG = 150; // Max pixels of horizontal mouse drag for full curl effect
 const CURL_EFFECT_SCALE = 0.001; // Scales the raw curl input to a spin value for the stone
 const LATERAL_CURL_FORCE = 0.03; // Base magnitude of the lateral force due to curl
-const POWER_MULTIPLIER = 0.06; // Reduced from 0.15 to slow down the stone
+const POWER_MULTIPLIER = 0.1; // Increased from 0.06 for more power
 // Existing multiplier for power
 
 // Constants for Sweeping
-const SWEEP_FRICTION_REDUCTION_EFFECT = 0.002; // Increases effective friction factor towards 1.0
-const SWEEP_CURL_INFLUENCE_EFFECT = 0.005; // Small lateral nudge force from sweeping
-const CURL_INPUT_DEAD_ZONE = 20; // If absolute mouse curl input is less than this, spinDirection is 0
+// const SWEEP_FRICTION_REDUCTION_EFFECT = 0.002; // OLD - Increases effective friction factor towards 1.0
+// const SWEEP_CURL_INFLUENCE_EFFECT = 0.005; // OLD - Small lateral nudge force from sweeping
+const CURL_INPUT_DEAD_ZONE = 20; // If absolute mouse curl input is less than this, spinDirection is 0 (keep for throwing)
+
+const SWEEP_SPEED_BOOST_FACTOR = 1.005; // Multiplies current speed by this factor
+const SWEEP_CENTER_SPEED_BOOST_FACTOR = 1.008; // Slightly more boost for center sweep
+const SWEEP_LATERAL_NUDGE_STRENGTH = 0.07; // Magnitude of the lateral nudge per click
 
 // Sweeping State
-let isSweepingLeft = false; // 'a' key
-let isSweepingRight = false; // 'd' key
+// let isSweepingLeft = false; // 'a' key - REMOVED
+// let isSweepingRight = false; // 'd' key - REMOVED
 let activeSweepingStone = null; // The stone currently being affected by sweeping
 
 // State for stones thrown by each team in the current end
@@ -153,8 +161,9 @@ function drawAimingLine() {
         // Placeholder for Ghosted Arc for Curl Preview (to be implemented next)
         // For now, just indicate curl direction in status
         let curlDir = "Straight";
-        if (currentCurlInput > 20) curlDir = "Right (Clockwise)";
-        else if (currentCurlInput < -20) curlDir = "Left (Counter-Clockwise)";
+        // Up for Counter-Clockwise (negative currentCurlInput), Down for Clockwise (positive currentCurlInput)
+        if (currentCurlInput > 20) curlDir = "Clockwise (Down)"; // Positive Y is down
+        else if (currentCurlInput < -20) curlDir = "Counter-Clockwise (Up)"; // Negative Y is up
         statusEl.textContent = `Power Locked. Curl: ${curlDir}. Click to throw.`;
 
         // Ghosted Arc Preview
@@ -171,6 +180,8 @@ function drawProjectedPath(startX, startY, initialPower, initialAngle, curlInput
     let simVx = Math.cos(initialAngle) * initialPower;
     let simVy = Math.sin(initialAngle) * initialPower;
 
+    // Positive curlInput (mouse moved down) = Clockwise spin = spinDirection 1
+    // Negative curlInput (mouse moved up) = Counter-Clockwise spin = spinDirection -1
     let simSpinDirection = curlInput / MAX_CURL_MOUSE_DRAG;
     simSpinDirection = Math.max(-1, Math.min(1, simSpinDirection));
     if (Math.abs(curlInput) < CURL_INPUT_DEAD_ZONE) { // Using same dead zone as in stone creation
@@ -198,8 +209,9 @@ function drawProjectedPath(startX, startY, initialPower, initialAngle, curlInput
                 const normVy = simVy / currentSimSpeed;
                 const actualCurlForce = LATERAL_CURL_FORCE; // Use the same constant
 
-                const ax_curl_sim = actualCurlForce * simSpinDirection * normVy;
-                const ay_curl_sim = -actualCurlForce * simSpinDirection * normVx;
+                // Apply same logic as in the main update loop for curl force direction
+                const ax_curl_sim = -actualCurlForce * simSpinDirection * normVy;
+                const ay_curl_sim = actualCurlForce * simSpinDirection * normVx;
 
                 simVx += ax_curl_sim;
                 simVy += ay_curl_sim;
@@ -250,48 +262,17 @@ function update() {
         if (stone.isSliding) {
             isAnyStoneSliding = true;
             let currentFriction = FRICTION;
-            let appliedSweepCurlInfluence = {x: 0, y: 0};
+            // let appliedSweepCurlInfluence = {x: 0, y: 0}; // REMOVED - sweeping is now instantaneous click
 
-            // Check for sweeping effects ONLY on the activeSweepingStone
-            if (activeSweepingStone === stone && stone.isSliding) {
-                if (isSweepingLeft || isSweepingRight) {
-                    // Reduce overall friction
-                    currentFriction += SWEEP_FRICTION_REDUCTION_EFFECT; // Make friction closer to 1.0
-                    currentFriction = Math.min(0.999, currentFriction); // Cap to prevent acceleration, ensure some friction
-
-                    // Influence curl: Sweeping generally makes the stone go straighter and farther.
-                    // A simple model: sweeping slightly reduces the existing curl or nudges straight.
-                    // If stone has spin, sweeping can counteract it slightly.
-                    if (stone.spinDirection !== 0) {
-                        // Reduce the effective LATERAL_CURL_FORCE when sweeping
-                        // This is one way. Another is to apply a counter-force or a nudge.
-                        // Let's try a nudge. 'a' (left) nudges left, 'd' (right) nudges right.
-                        // The nudge should be perpendicular to stone's velocity.
-                        const currentSpeed = Math.hypot(stone.vx, stone.vy);
-                        if (currentSpeed > 0.1) {
-                            const normVx = stone.vx / currentSpeed; // Normalized velocity
-                            const normVy = stone.vy / currentSpeed;
-
-                            // Nudge direction (perpendicular to velocity)
-                            // Left nudge: (-normVy, normVx)
-                            // Right nudge: (normVy, -normVx)
-                            if (isSweepingLeft) { // Nudge left relative to stone's path
-                                appliedSweepCurlInfluence.x = -normVy * SWEEP_CURL_INFLUENCE_EFFECT;
-                                appliedSweepCurlInfluence.y = normVx * SWEEP_CURL_INFLUENCE_EFFECT;
-                            } else if (isSweepingRight) { // Nudge right relative to stone's path
-                                appliedSweepCurlInfluence.x = normVy * SWEEP_CURL_INFLUENCE_EFFECT;
-                                appliedSweepCurlInfluence.y = -normVx * SWEEP_CURL_INFLUENCE_EFFECT;
-                            }
-                            // If both sweeping, effects could cancel or double - for now, assume they don't press both.
-                            // Or, if both, maybe just friction reduction applies.
-                            // Current logic: if either is true, friction is reduced. If one is specifically true, nudge.
-                        }
-                    }
-                }
-            }
+            // OLD SWEEPING LOGIC - REMOVED
+            // if (activeSweepingStone === stone && stone.isSliding) {
+            //     if (isSweepingLeft || isSweepingRight) {
+            //         // ... old logic ...
+            //     }
+            // }
 
             // Apply friction to slow down the stone
-            stone.vx *= currentFriction;
+            stone.vx *= currentFriction; // currentFriction is just FRICTION now unless changed by other mechanics
             stone.vy *= currentFriction;
 
             // Apply curl physics if the stone has spin and is moving
@@ -329,17 +310,34 @@ function update() {
 
                     const actualCurlForce = LATERAL_CURL_FORCE; // Can be made dynamic later
 
-                    const ax_curl = actualCurlForce * stone.spinDirection * normVy; // If vy is large, affects x more
-                    const ay_curl = -actualCurlForce * stone.spinDirection * normVx; // If vx is large, affects y more
+                    // If stone is moving primarily along X-axis (normVx is high, normVy is low):
+                    // A positive spinDirection (Clockwise, from mouse moving down) should make the stone curl to its "right".
+                    // If moving in +X, "right" is +Y. So ay_curl should be positive.
+                    // ay_curl = actualCurlForce * stone.spinDirection * normVx
+                    // A negative spinDirection (Counter-Clockwise, from mouse moving up) should make it curl to its "left".
+                    // If moving in +X, "left" is -Y. So ay_curl should be negative.
+                    // ay_curl = actualCurlForce * stone.spinDirection * normVx (if spinDirection is -1, ay_curl is negative) -> This is correct.
+
+                    // If stone is moving primarily along Y-axis (normVy is high, normVx is low):
+                    // A positive spinDirection (Clockwise) should make it curl to its "right".
+                    // If moving in +Y, "right" is -X. So ax_curl should be negative.
+                    // ax_curl = -actualCurlForce * stone.spinDirection * normVy
+                    // A negative spinDirection (Counter-Clockwise) should make it curl to its "left".
+                    // If moving in +Y, "left" is +X. So ax_curl should be positive.
+                    // ax_curl = -actualCurlForce * stone.spinDirection * normVy (if spinDirection is -1, ax_curl is positive) -> This is correct.
+
+                    const ax_curl = -actualCurlForce * stone.spinDirection * normVy; // This was: actualCurlForce * stone.spinDirection * normVy;
+                    const ay_curl = actualCurlForce * stone.spinDirection * normVx; // This was: -actualCurlForce * stone.spinDirection * normVx;
+
 
                     stone.vx += ax_curl;
                     stone.vy += ay_curl;
                 }
             }
 
-            // Apply sweeping nudge if any
-            stone.vx += appliedSweepCurlInfluence.x;
-            stone.vy += appliedSweepCurlInfluence.y;
+            // Apply sweeping nudge if any - REMOVED (effects are instant on click)
+            // stone.vx += appliedSweepCurlInfluence.x;
+            // stone.vy += appliedSweepCurlInfluence.y;
 
             // Update position
             stone.x += stone.vx;
@@ -376,8 +374,8 @@ function update() {
 
                 if (activeSweepingStone === stone) {
                     activeSweepingStone = null; // Clear active sweeping stone if it's this one
-                    isSweepingLeft = false; // Stop sweeping indication
-                    isSweepingRight = false;
+                    // isSweepingLeft = false; // REMOVED
+                    // isSweepingRight = false; // REMOVED
                 }
             }
         }
@@ -536,8 +534,9 @@ function endTurn() { // Called when all stones stop sliding after a throw
 
     gameState = 'aimingPower'; // Set state for the next throw
     activeSweepingStone = null; // Clear any active sweeper at end of sliding phase / turn switch
-    isSweepingLeft = false;
-    isSweepingRight = false;
+    // isSweepingLeft = false; // REMOVED
+    // isSweepingRight = false; // REMOVED
+    sweepControls.style.display = 'none'; // Hide sweep buttons
     updateStatus();
 }
 
@@ -629,6 +628,8 @@ function resetGame() {
     curlAimStartX = 0;
     currentCurlInput = 0;
 
+    if (sweepControls) sweepControls.style.display = 'none'; // Ensure sweep controls are hidden on reset
+
     updateStatus(); // Update the display
     // requestAnimationFrame(update); // Ensure canvas is redrawn, update() handles this
 }
@@ -663,12 +664,13 @@ function updateStatus() {
         }
     } else if (gameState === 'aimingCurl') {
         let curlDir = "Straight";
-        if (currentCurlInput > 20) curlDir = "Right (Clockwise)";
-        else if (currentCurlInput < -20) curlDir = "Left (Counter-Clockwise)";
+        // Up for Counter-Clockwise (negative currentCurlInput), Down for Clockwise (positive currentCurlInput)
+        if (currentCurlInput > 20) curlDir = "Clockwise (Down)";
+        else if (currentCurlInput < -20) curlDir = "Counter-Clockwise (Up)";
         statusText = `
             <div class="team-indicator">
                  <div class="color-box" style="background-color:${currentTeam === 'red' ? COLOR_RED : COLOR_BLUE};"></div>
-                <span>${teamName}: Power Locked. Set Curl (${curlDir}). Click to throw.</span>
+                <span>${teamName}: Power Locked. Move mouse up/down for Curl (${curlDir}). Click to throw.</span>
             </div>`;
     } else if (gameState === 'sliding') {
         statusText = "Sliding...";
@@ -709,10 +711,34 @@ canvas.addEventListener('mousedown', (e) => {
         const vy = Math.sin(lockedAngle) * lockedPower;
 
         // Normalize curlInput to spinDirection (e.g., -1, 0, 1, or a continuous value)
-        // Positive currentCurlInput for clockwise (typically, stone curls right), negative for counter-clockwise (curls left)
-        // Make spinDirection proportional to curl input, ranging from -1 to 1.
-        let spinDirection = currentCurlInput / MAX_CURL_MOUSE_DRAG;
+        // Positive currentCurlInput (mouse moved down) for Clockwise spin (spinDirection = 1, stone curls to its right if moving +X)
+        // Negative currentCurlInput (mouse moved up) for Counter-Clockwise spin (spinDirection = -1, stone curls to its left if moving +X)
+        // The interpretation of spinDirection (1 or -1) in apply curl physics needs to be consistent.
+        // Standard curling: "Out-turn" (clockwise for right-hander) makes stone curl to player's right.
+        // "In-turn" (counter-clockwise for right-hander) makes stone curl to player's left.
+        // If stone.vx is positive (moving right on screen):
+        // Clockwise (spinDirection 1) should increase Y if vy is small, or alter vy based on vx.
+        // Counter-Clockwise (spinDirection -1) should decrease Y if vy is small.
+        // The existing physics:
+        // ax_curl = actualCurlForce * stone.spinDirection * normVy;
+        // ay_curl = -actualCurlForce * stone.spinDirection * normVx;
+        // If normVx approx 1 (moving mostly right), normVy approx 0:
+        // ax_curl approx 0
+        // ay_curl = -actualCurlForce * stone.spinDirection;
+        // So, if spinDirection is 1 (Clockwise/Down), ay_curl is negative (moves stone UP on screen if positive Y is down). This is reversed.
+        // We want: Downward mouse movement (positive currentCurlInput) -> Clockwise spin -> Curls Right (if moving along +X).
+        // "Curls Right" means if vx > 0, vy becomes more positive.
+        // So if spinDirection = 1 (from downward mouse), ay_curl should be positive.
+        // Thus, ay_curl = actualCurlForce * stone.spinDirection * normVx (no minus sign).
+        // And ax_curl = -actualCurlForce * stone.spinDirection * normVy; (this seems okay for affecting x based on y movement and spin).
+
+        // Let's adjust spinDirection calculation based on new input:
+        // Moving mouse DOWN (e.offsetY > curlAimStartY, so currentCurlInput is positive) -> Clockwise spin.
+        // Moving mouse UP (e.offsetY < curlAimStartY, so currentCurlInput is negative) -> Counter-Clockwise spin.
+        // We will assign spinDirection: positive for Clockwise, negative for Counter-Clockwise.
+        let spinDirection = currentCurlInput / MAX_CURL_MOUSE_DRAG; // MAX_CURL_MOUSE_DRAG is for the magnitude
         spinDirection = Math.max(-1, Math.min(1, spinDirection)); // Clamp between -1 and 1
+
 
         // Add a dead zone for very small curl inputs to make it easier to throw straight
         const CURL_INPUT_DEAD_ZONE = 20; // If absolute curl input is less than this, consider it no spin
@@ -744,6 +770,7 @@ canvas.addEventListener('mousedown', (e) => {
 
         gameState = 'sliding';
         statusEl.textContent = 'Sliding...';
+        sweepControls.style.display = 'flex'; // Show sweep buttons
         updateStatus(); // Update score/turn info
 
         // Reset aiming variables for the next shot
@@ -758,8 +785,8 @@ canvas.addEventListener('mousemove', (e) => {
         powerAimEnd = { x: e.offsetX, y: e.offsetY };
         // Power display will be handled by drawAimingLine
     } else if (gameState === 'aimingCurl' && isSettingCurl) {
-        // currentCurlInput is based on horizontal movement since curl setting started
-        currentCurlInput = e.offsetX - curlAimStartX;
+        // currentCurlInput is based on vertical movement since curl setting started
+        currentCurlInput = e.offsetY - curlAimStartY; // Changed from X to Y
         // Clamp curl input
         currentCurlInput = Math.max(-MAX_CURL_MOUSE_DRAG, Math.min(MAX_CURL_MOUSE_DRAG, currentCurlInput));
         // Status update for curl can be here or in drawAimingLine/update
@@ -770,6 +797,7 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mouseup', (e) => {
     if (gameState === 'aimingPower' && isSettingPower) {
         isSettingPower = false; // Power setting phase ends
+        sweepControls.style.display = 'none'; // Ensure sweep buttons are hidden
 
         // Calculate power and angle from the drag
         const dx = powerAimStart.x - powerAimEnd.x; // Reversed for "pull back" mechanic
@@ -783,36 +811,75 @@ canvas.addEventListener('mouseup', (e) => {
 
         gameState = 'aimingCurl';
         isSettingCurl = true;
-        curlAimStartX = e.offsetX; // Start curl input from current mouse X
+        curlAimStartY = e.offsetY; // Start curl input from current mouse Y
         currentCurlInput = 0; // Reset curl input for this phase
-        statusEl.textContent = "Move mouse left/right for curl. Click to throw.";
+        // Status message updated in updateStatus, but ensure it's clear here too.
+        statusEl.textContent = "Move mouse up/down for curl. Click to throw.";
     }
     // Note: Mouseup during 'aimingCurl' does nothing; the throw is on mousedown.
 });
 
 resetButton.addEventListener('click', resetGame);
 
-// Sweeping Event Listeners
-window.addEventListener('keydown', (e) => {
-    if (gameState !== 'sliding') return; // Only allow sweeping when stones are sliding
-
-    if (e.key.toLowerCase() === 'a') {
-        isSweepingLeft = true;
-    } else if (e.key.toLowerCase() === 'd') {
-        isSweepingRight = true;
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.key.toLowerCase() === 'a') {
-        isSweepingLeft = false;
-    } else if (e.key.toLowerCase() === 'd') {
-        isSweepingRight = false;
-    }
-});
+// Sweeping Event Listeners (REMOVED OLD KEYBOARD LISTENERS)
+// window.addEventListener('keydown', (e) => { ... });
+// window.addEventListener('keyup', (e) => { ... });
 
 
 // --- Start the Game ---
+
+// Sweeping Button Event Listeners
+sweepLeftButton.addEventListener('click', () => {
+    if (gameState === 'sliding' && activeSweepingStone && activeSweepingStone.isSliding) {
+        // Boost speed
+        activeSweepingStone.vx *= SWEEP_SPEED_BOOST_FACTOR;
+        activeSweepingStone.vy *= SWEEP_SPEED_BOOST_FACTOR;
+
+        // Nudge left (relative to stone's velocity vector)
+        // Left nudge: perpendicular vector is (-normVy, normVx)
+        const speed = Math.hypot(activeSweepingStone.vx, activeSweepingStone.vy);
+        if (speed > 0.1) {
+            const normVx = activeSweepingStone.vx / speed;
+            const normVy = activeSweepingStone.vy / speed;
+            activeSweepingStone.vx += -normVy * SWEEP_LATERAL_NUDGE_STRENGTH;
+            activeSweepingStone.vy += normVx * SWEEP_LATERAL_NUDGE_STRENGTH;
+        }
+    }
+});
+
+sweepRightButton.addEventListener('click', () => {
+    if (gameState === 'sliding' && activeSweepingStone && activeSweepingStone.isSliding) {
+        // Boost speed
+        activeSweepingStone.vx *= SWEEP_SPEED_BOOST_FACTOR;
+        activeSweepingStone.vy *= SWEEP_SPEED_BOOST_FACTOR;
+
+        // Nudge right (relative to stone's velocity vector)
+        // Right nudge: perpendicular vector is (normVy, -normVx)
+        const speed = Math.hypot(activeSweepingStone.vx, activeSweepingStone.vy);
+        if (speed > 0.1) {
+            const normVx = activeSweepingStone.vx / speed;
+            const normVy = activeSweepingStone.vy / speed;
+            activeSweepingStone.vx += normVy * SWEEP_LATERAL_NUDGE_STRENGTH;
+            activeSweepingStone.vy += -normVx * SWEEP_LATERAL_NUDGE_STRENGTH;
+        }
+    }
+});
+
+sweepCenterButton.addEventListener('click', () => {
+    if (gameState === 'sliding' && activeSweepingStone && activeSweepingStone.isSliding) {
+        // Boost speed (stronger for center)
+        activeSweepingStone.vx *= SWEEP_CENTER_SPEED_BOOST_FACTOR;
+        activeSweepingStone.vy *= SWEEP_CENTER_SPEED_BOOST_FACTOR;
+
+        // Optional: Very slight straightening effect or reduce existing curl slightly
+        // For simplicity, primary effect is stronger speed boost.
+        // Could also slightly dampen angular velocity if we had that.
+        // Or, if stone has spin, slightly reduce effective LATERAL_CURL_FORCE temporarily (more complex)
+        // For now, just speed boost.
+    }
+});
+
+
 resetGame();
 update();
 // --- End of new constants ---
