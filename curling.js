@@ -17,6 +17,14 @@ const STONE_RADIUS = 15;
 const FRICTION = 0.98; // closer to 1 means less friction
 const STONES_PER_TEAM = 4;
 
+// Constants for new game features (moved from bottom)
+const HOG_LINE_THICKNESS = 4; // px
+const HOG_LINE_TO_TEE_PX = 220; // Adjusted for gameplay feel on this canvas size
+const HOG_LINE_X_FAR = HOUSE_CENTER_X - HOG_LINE_TO_TEE_PX;
+const PLAY_AREA_START_X = START_X - (STONE_RADIUS * 2); // Where the hack might be visually
+const HOG_LINE_X_NEAR = PLAY_AREA_START_X + HOG_LINE_TO_TEE_PX;
+const CURL_SENSITIVITY = 0.02; // Adjust for how much mouse movement affects curl
+
 // Colors
 const COLOR_RED = '#e53e3e';
 const COLOR_BLUE = '#4299e1';
@@ -24,6 +32,7 @@ const COLOR_ICE = '#ffffff';
 const COLOR_HOUSE_BLUE = '#a0deff';
 const COLOR_HOUSE_RED = '#ffc0c0';
 const COLOR_BUTTON = '#f6ad55';
+const HOG_LINE_COLOR = '#3182ce'; // A distinct blue
 
 // Game state variables
 let stones = [];
@@ -805,28 +814,6 @@ window.addEventListener('keyup', (e) => {
 // --- Start the Game ---
 resetGame();
 update();
-// Constants for new game features
-const HOG_LINE_THICKNESS = 4; // px
-const HOG_LINE_COLOR = '#3182ce'; // A distinct blue
-
-// Far Hog Line: Stone must fully cross this to be in play.
-// Standard distance from Tee Line (House Center X) to Hog Line is 21 feet.
-// House outer radius is 80px (representing 6 feet). So 1 foot approx 80/6 = 13.33px.
-// 21 feet * 13.33 px/foot = ~280px.
-const HOG_LINE_TO_TEE_PX = 220; // Adjusted for gameplay feel on this canvas size
-const HOG_LINE_X_FAR = HOUSE_CENTER_X - HOG_LINE_TO_TEE_PX;
-
-// Near Hog Line: Player must release stone before this line.
-// Visually, it's symmetric to the far hog line at the other end.
-// Distance from center ice to hog line is typically half the distance between hog lines.
-// For visualization:
-const PLAY_AREA_START_X = START_X - (STONE_RADIUS * 2); // Where the hack might be visually
-const HOG_LINE_X_NEAR = PLAY_AREA_START_X + HOG_LINE_TO_TEE_PX; // Symmetric position from start area
-                                                        // Or a fixed distance from START_X
-                                                        // const HOG_LINE_X_NEAR = START_X + 70;
-
-
-const CURL_SENSITIVITY = 0.02; // Adjust for how much mouse movement affects curl
 // --- End of new constants ---
 
 // (The existing game logic will be here)
