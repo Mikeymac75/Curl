@@ -62,6 +62,10 @@ let isSweepingLeft = false; // 'a' key
 let isSweepingRight = false; // 'd' key
 let activeSweepingStone = null; // The stone currently being affected by sweeping
 
+// State for stones thrown by each team in the current end
+let redStonesThrownThisEnd = 0;
+let blueStonesThrownThisEnd = 0;
+
 // --- Drawing Functions ---
 
 function drawHouse() {
@@ -893,9 +897,7 @@ function updateStatusRefined() {
 // The status update for stones left needs to be accurate per team per end.
 // Let's refine `endTurn` and `resetGame` slightly.
 
-// Add state for stones thrown by each team in the current end
-let redStonesThrownThisEnd = 0;
-let blueStonesThrownThisEnd = 0;
+// NOTE: redStonesThrownThisEnd and blueStonesThrownThisEnd are now declared at the top of the script.
 
 function resetGame() {
     stones = [];
