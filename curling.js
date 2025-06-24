@@ -18,7 +18,7 @@ const HOUSE_CENTER_X = canvas.width - 120;
 const HOUSE_CENTER_Y = canvas.height / 2;
 const START_X = 150; // Increased from 100 for more aiming room
 const STONE_RADIUS = 15;
-const FRICTION = 0.98; // closer to 1 means less friction
+const FRICTION = 0.99; // closer to 1 means less friction (Increased from 0.98)
 const GAME_SPEED_MODIFIER = 0.5; // Slows down visual updates
 const ADJUSTED_FRICTION = Math.pow(FRICTION, GAME_SPEED_MODIFIER); // Compensate friction for slower updates
 const STONES_PER_TEAM = 4;
@@ -64,7 +64,7 @@ let lockedAngle = 0;    // Angle determined in aimingPower state
 // Constants for Curl
 const MAX_CURL_MOUSE_DRAG = 150; // Max pixels of horizontal mouse drag for full curl effect
 const CURL_EFFECT_SCALE = 0.001; // Scales the raw curl input to a spin value for the stone
-const LATERAL_CURL_FORCE = 0.03; // Base magnitude of the lateral force due to curl
+const LATERAL_CURL_FORCE = 0.0075; // Base magnitude of the lateral force due to curl (Reduced from 0.03)
 const POWER_MULTIPLIER = 0.1; // Increased from 0.06 for more power
 // Existing multiplier for power
 
